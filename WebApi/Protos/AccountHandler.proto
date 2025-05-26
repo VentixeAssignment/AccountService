@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+option csharp_namespace = "WebApi.Protos";
+
+service AccountHandler {
+	rpc CreateUser(CreateRequest) returns(CreateReply);
+	rpc UpdateUser(UpdateRequest) returns(UpdateReply);
+	rpc UpdatePassword(PasswordRequest) returns(PasswordReply);
+	rpc DeleteUser(DeleteRequest) returns(DeleteReply);
+}
+
+message CreateRequest {
+	string FirstName = 1;
+	string LastName = 2;
+	string Email = 4;
+	string Password = 5;
+}
+
+message CreateReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message UpdateRequest {
+	string Id = 1;
+	string FirstName = 2;
+	string LastName = 3;
+	string Email = 4;
+}
+
+message UpdateReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message PasswordRequest {
+	string Id = 1;
+	string CurrentPassword = 2;
+	string NewPassword = 3;
+}
+
+message PasswordReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message DeleteRequest {
+	string Id = 1;
+}
+
+message DeleteReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+
+

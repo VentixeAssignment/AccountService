@@ -1,9 +1,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WebApi.Data;
+using WebApi.Protos;
 using WebApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddGrpcClient<AccountHandler.AccountHandlerClient>(x => 
+    x.Address = new Uri("https://localhost:7177")
+);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
