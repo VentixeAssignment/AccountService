@@ -14,15 +14,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<DataContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("LocalDb")));
-builder.Services.AddScoped<IAccountService, IAccountService>();
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(x =>
-{
-    x.User.RequireUniqueEmail = true;
-    x.Password.RequiredLength = 8;
-    x.Password.RequireDigit = true;
-    x.Password.RequireUppercase = true;
-    x.Password.RequireLowercase = true;
-}).AddEntityFrameworkStores<DataContext>().AddDefaultTokenProviders();
+builder.Services.AddScoped<IAccountService, AccountService>();
 
 var app = builder.Build();
 
