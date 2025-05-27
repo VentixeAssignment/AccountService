@@ -1,6 +1,6 @@
 ﻿namespace WebApi.Services;
 
-public interface IAuthService
+public interface IAccountService
 {
 
 }

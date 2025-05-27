@@ -6,15 +6,15 @@ using WebApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddGrpcClient<AccountHandler.AccountHandlerClient>(x => 
+builder.Services.AddGrpcClient<AuthHandler.AuthHandlerClient>(x =>
     x.Address = new Uri("https://localhost:7177")
 );
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-builder.Services.AddDbContext<DataContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("ConnectionString")));
-builder.Services.AddScoped<IAuthService, IAuthService>();
+builder.Services.AddDbContext<DataContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("LocalDb")));
+builder.Services.AddScoped<IAccountService, IAccountService>();
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(x =>
 {
     x.User.RequireUniqueEmail = true;

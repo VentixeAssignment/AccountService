@@ -29,7 +29,7 @@
   </ItemGroup>
 
 	<ItemGroup>
-		<Protobuf Include="Protos\AccountHandler.proto" GrpcService="Client" />
+		<Protobuf Include="Protos\AuthHandler.proto" GrpsServices="Client" />
 	</ItemGroup>
 
 </Project>
