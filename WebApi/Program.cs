@@ -11,23 +11,27 @@ using WebApi.Services;
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
-var azureUri = builder.Configuration["GrpcUri:AzureUri"];
-var localUri = builder.Configuration["GrpcUri:LocalUri"];
+var grpcUri = builder.Configuration["GrpcUri"];
 
 
-
-builder.Services.AddGrpcClient<AuthHandler.AuthHandlerClient>(x =>
-    x.Address = new Uri(azureUri!)
-);
+if (allowedOrigins == null || allowedOrigins.Length == 0)
+{
+    throw new Exception($"Appsettings not loaded correctly. {allowedOrigins}");
+}
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(allowedOrigins!)
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
+});
+
+builder.Services.AddGrpcClient<AuthHandler.AuthHandlerClient>(x =>
+{
+    x.Address = new Uri(grpcUri!);
 });
 
 builder.Services.AddAuthentication(x =>
@@ -58,7 +62,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddDbContext<DataContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("LocalDb")));
+builder.Services.AddDbContext<DataContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("VentixeDb")));
 builder.Services.AddScoped<AccountRepository>();
 builder.Services.AddScoped<ImageService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
