@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+option csharp_namespace = "WebApi.Protos";
+
+service AuthHandler {
+	rpc CreateUser(CreateRequest) returns(CreateReply);
+	rpc AlreadyExists(ExistsRequest) returns(ExistsReply);
+	rpc GetUserEmail(EmailRequest) returns(EmailReply);
+	rpc UpdateUser(UpdateRequest) returns(UpdateReply);
+	rpc UpdatePassword(PasswordRequest) returns(PasswordReply);
+	rpc ChangeActive(ActiveRequest) returns(ActiveReply);
+	rpc DeleteUser(DeleteRequest) returns(DeleteReply);
+	rpc SignIn(SigninRequest) returns(SigninReply);
+}
+
+
+message CreateRequest {
+	string Email = 1;
+	string Password = 2;
+}
+
+message CreateReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+	string UserId = 4;
+}
+
+message ExistsRequest {
+	string Email = 1;
+}
+
+message ExistsReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message EmailRequest {
+	string Id = 1;
+}
+
+message EmailReply {
+	bool Success = 1;
+	string Email = 2;
+	string Message = 3;
+}
+
+message UpdateRequest {
+	string Id = 1;
+	string Email = 2;
+}
+
+message UpdateReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message PasswordRequest {
+	string Id = 1;
+	string CurrentPassword = 2;
+	string NewPassword = 3;
+}
+
+message PasswordReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message ActiveRequest {
+	bool IsActive = 1;
+	string Id = 2;
+}
+
+message ActiveReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message DeleteRequest {
+	string Id = 1;
+}
+
+message DeleteReply {
+	bool Success = 1;
+	int32 StatusCode = 2;
+	string Message = 3;
+}
+
+message SigninRequest {
+	string Email = 1;
+	string Password = 2;
+}
+
+message SigninReply {
+	string Token = 1;
+	string Message = 2;
+	bool Succeeded = 3;
+}
+
