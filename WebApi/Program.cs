@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -11,10 +10,25 @@ using WebApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+var azureUri = builder.Configuration["GrpcUri:AzureUri"];
+var localUri = builder.Configuration["GrpcUri:LocalUri"];
+
+
 
 builder.Services.AddGrpcClient<AuthHandler.AuthHandlerClient>(x =>
-    x.Address = new Uri("https://localhost:7177")
+    x.Address = new Uri(azureUri!)
 );
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(allowedOrigins!)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 builder.Services.AddAuthentication(x =>
 {
@@ -60,7 +74,7 @@ if(app.Environment.IsDevelopment())
 app.MapOpenApi();
 app.MapScalarApiReference("/api/docs");
 app.UseHttpsRedirection();
-app.UseCors(x => x.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
