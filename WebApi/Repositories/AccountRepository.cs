@@ -30,8 +30,8 @@ public class AccountRepository(DataContext context, ILogger<AccountRepository> l
         }
         catch (Exception ex)
         {
-            _logger.LogWarning($"Something unexpected happened adding account to database.\n{ex.Message}");
-            return new Result<AccountEntity> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened adding account to database.\n{ex.Message}" };
+            _logger.LogWarning($"Something unexpected happened adding account to database.{ex}");
+            return new Result<AccountEntity> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened adding account to database.{ex}" };
         }
     }
 
@@ -49,27 +49,6 @@ public class AccountRepository(DataContext context, ILogger<AccountRepository> l
     }
 
 
-    public Result<AccountEntity> UpdateAccount(AccountEntity entity)
-    {
-        if(entity == null)
-            return new Result<AccountEntity> { Succeeded = false, StatusCode = 400, Message = "Invalid entity data." };
-
-        try
-        {
-            var result = _dbSet.Update(entity);
-
-            return result != null
-                ? new Result<AccountEntity> { Succeeded = true, StatusCode = 200, Data = entity }
-                : new Result<AccountEntity> { Succeeded = false, StatusCode = 500, Message = "Failed to update account." };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning($"Something unexpected happened updating account in database.\n{ex.Message}");
-            return new Result<AccountEntity> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened updating account in database.\n{ex.Message}" };
-        }
-    }
-
-
     public Result<AccountEntity> DeleteAccount(AccountEntity entity)
     {
         if (entity == null)
@@ -77,6 +56,7 @@ public class AccountRepository(DataContext context, ILogger<AccountRepository> l
 
         try
         {
+            _dbSet.Attach(entity);
             var result = _dbSet.Remove(entity);
 
             return result != null
@@ -85,8 +65,8 @@ public class AccountRepository(DataContext context, ILogger<AccountRepository> l
         }
         catch (Exception ex)
         {
-            _logger.LogWarning($"Something unexpected happened deleting account from database.\n{ex.Message}");
-            return new Result<AccountEntity> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting account from database.\n{ex.Message}" };
+            _logger.LogWarning($"Something unexpected happened deleting account from database.{ex}");
+            return new Result<AccountEntity> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting account from database.{ex}" };
         }
     }
 }

@@ -23,6 +23,13 @@ public class AccountService(AccountRepository repository, DataContext context, I
         if (form == null)
             return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "Invalid data in registration form." };
 
+        var existRequest = new ExistsRequest { Email = form.Email };
+
+        var exists = await _authHandlerClient.AlreadyExistsAsync(existRequest);
+
+        if (exists.Success)
+            return new Result<AccountModel> { Succeeded = false, StatusCode = exists.StatusCode, Message = exists.Message };
+
         var imageUrl = "";
 
         if (form.ProfileImage != null)
@@ -45,13 +52,13 @@ public class AccountService(AccountRepository repository, DataContext context, I
             Email = form.Email,
             Password = form.Password
         };
-        
+
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
             var reply = await _authHandlerClient.CreateUserAsync(request);
-            if(!reply.Success)
+            if (!reply.Success)
             {
                 await transaction.RollbackAsync();
                 return new Result<AccountModel> { Succeeded = false, StatusCode = reply.StatusCode, Message = reply.Message };
@@ -80,8 +87,8 @@ public class AccountService(AccountRepository repository, DataContext context, I
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning($"Something unexpected happened deleting user from Auth database.\n{ex.Message}");
-                    return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting user from Auth database.\n{ex.Message}" };
+                    _logger.LogWarning($"Something unexpected happened deleting user from Auth database. ##### {ex}");
+                    return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting user from Auth database. ##### {ex}" };
                 }
             }
 
@@ -93,8 +100,8 @@ public class AccountService(AccountRepository repository, DataContext context, I
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            _logger.LogWarning($"Something unexpected happened creating account.\n{ex.Message}");
-            return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened creating account.\n{ex.Message}" };
+            _logger.LogWarning($"Something unexpected happened creating account. ##### {ex}");
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened creating account. ##### {ex}" };
         }
     }
 
@@ -109,11 +116,24 @@ public class AccountService(AccountRepository repository, DataContext context, I
         if (entity == null || entity.Data == null)
             return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = entity?.Message ?? "Account not found." };
 
+
+        var request = new EmailRequest
+        {
+            Id = entity.Data.UserId
+        };
+
+        var emailReply = await _authHandlerClient.GetUserEmailAsync(request);
+
+        if (!emailReply.Success)
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = emailReply.Message };
+
         var model = new AccountModel
         {
             Id = entity.Data.Id,
             FirstName = entity.Data.FirstName,
             LastName = entity.Data.LastName,
+            PhoneNumber = entity.Data.PhoneNumber,
+            Email = emailReply.Email,
             ProfileImageUrl = entity.Data.ProfileImageUrl,
             DateOfBirth = entity.Data.DateOfBirth,
             StreetAddress = entity.Data.StreetAddress,
@@ -125,87 +145,130 @@ public class AccountService(AccountRepository repository, DataContext context, I
     }
 
 
-    public async Task<Result<AccountModel>> UpdateAccountAsync(AccountModel model)
+    public async Task<Result<AccountModel>> UpdateAccountAsync(UpdateRegForm form)
     {
-        if (model == null)
+        if (form == null)
             return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "Input model is invalid." };
 
-        var entity = new AccountEntity
-        {
-            Id = model.Id,
-            FirstName = model.FirstName,
-            LastName = model.LastName,
-            DateOfBirth = model.DateOfBirth,
-            ProfileImageUrl = model.ProfileImageUrl,
-            PhoneNumber = model.PhoneNumber,
-            StreetAddress = model.StreetAddress,
-            PostalCode = model.PostalCode,
-            City = model.City
-        };
+        var entity = await _repository.GetOneAsync(x => x.Id == form.Id);
+
+        if (entity.Data == null)
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = $"No entity with id {form.Id} was found." };
+
 
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            var result = _repository.UpdateAccount(entity);
-
-            if (!result.Succeeded)
+            if (form.ProfileImage != null)
             {
-                await transaction.RollbackAsync();
-                return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = result.Message };
+                entity.Data.ProfileImageUrl = _imageService.CreateImageUrl(form.ProfileImage!);
             }
+
+            if(form.PhoneNumber != null)
+            {
+                entity.Data.PhoneNumber = form.PhoneNumber;
+            }
+
+            entity.Data.FirstName = form.FirstName;
+            entity.Data.LastName = form.LastName;
+            entity.Data.DateOfBirth = form.DateOfBirth;
+            entity.Data.StreetAddress = form.StreetAddress;
+            entity.Data.PostalCode = form.PostalCode;
+            entity.Data.City = form.City;
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return new Result<AccountModel> { Succeeded = true, StatusCode = 201, Message = "Account successfully updated." };
+            return new Result<AccountModel> { Succeeded = true, StatusCode = 200, Message = "Account successfully updated." };
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            _logger.LogWarning($"Something unexpected happened updating account.\n{ex.Message}");
-            return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened updating account.\n{ex.Message}" };
+            _logger.LogWarning($"Something unexpected happened updating account. ##### {ex}");
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened updating account. ##### {ex}" };
         }
     }
 
+
     public async Task<Result<AccountModel>> DeleteAccountAsync(AccountModel model)
     {
-        if (model == null)
-            return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "Input model is invalid." };
+        if (model == null || string.IsNullOrWhiteSpace(model.Id))
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "Invalid input data." };
 
         var entity = new AccountEntity
         {
-            Id = model.Id,
-            FirstName = model.FirstName,
-            LastName = model.LastName,
-            DateOfBirth = model.DateOfBirth,
-            ProfileImageUrl = model.ProfileImageUrl,
-            PhoneNumber = model.PhoneNumber,
-            StreetAddress = model.StreetAddress,
-            PostalCode = model.PostalCode,
-            City = model.City
+            Id = model.Id
+        };
+
+        var request = new ActiveRequest
+        {
+            IsActive = false,
+            Id = model.UserId
         };
 
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
+            var reply = await _authHandlerClient.ChangeActiveAsync(request);
+
+            if (!reply.Success)
+                return new Result<AccountModel> { Succeeded = false, StatusCode = reply.StatusCode, Message = reply.Message };
+
             var result = _repository.DeleteAccount(entity);
 
             if (!result.Succeeded)
             {
                 await transaction.RollbackAsync();
+                request.IsActive = true;
+
+                try
+                {
+                    var statusResult = await _authHandlerClient.ChangeActiveAsync(request);
+                    if (!statusResult.Success)
+                        return new Result<AccountModel> { Succeeded = false, StatusCode = reply.StatusCode, Message = reply.Message };
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"Something unexpected happened resetting user status. ##### {ex}");
+                    return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened resetting user status. ##### {ex}" };
+                }
+
                 return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = result.Message };
             }
 
             await _context.SaveChangesAsync();
+
+            try
+            {
+                var deleteRequest = new DeleteRequest
+                {
+                    Id = model.UserId
+                };
+
+                var delete = await _authHandlerClient.DeleteUserAsync(deleteRequest);
+                if (!delete.Success)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogWarning($"Something unexpected happened deleting user. ##### {delete.StatusCode} ##### {delete.Message}");
+                    return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting user. ##### {delete.StatusCode} ##### {delete.Message}" };
+                }
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogWarning($"Something unexpected happened deleting user. ##### {ex}");
+                return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting user. ##### {ex}" };
+            }
+
             await transaction.CommitAsync();
 
-            return new Result<AccountModel> { Succeeded = true, StatusCode = 201, Message = "Account successfully deleted." };
+            return new Result<AccountModel> { Succeeded = true, StatusCode = 200, Message = "Account successfully deleted." };
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            _logger.LogWarning($"Something unexpected happened deleting account.\n{ex.Message}");
-            return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting account.\n{ex.Message}" };
+            _logger.LogWarning($"Something unexpected happened deleting account. ##### {ex}");
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting account. ##### {ex}" };
         }
     }
 }

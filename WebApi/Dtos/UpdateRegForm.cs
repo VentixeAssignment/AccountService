@@ -2,7 +2,7 @@
 
 namespace WebApi.Dtos;
 
-public class AccountRegForm
+public class UpdateRegForm
 {
     public string? Id { get; set; }
 
@@ -30,20 +30,9 @@ public class AccountRegForm
 
 
     [Required(ErrorMessage = "Field is required")]
-    [RegularExpression(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
-        ErrorMessage = "Invalid email address")]
-    public string Email { get; set; } = null!;
-
-
-    [Required(ErrorMessage = "Field is required")]
     [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$",
         ErrorMessage = "Password must be at least 8 characters and contain 1 upper and 1 lower case letter, 1 digit, 1 special character.")]
     public string Password { get; set; } = null!;
-
-
-    [Required(ErrorMessage = "Field is required")]
-    [Compare(nameof(Password), ErrorMessage = "Passwords does not match")]
-    public string ConfirmPassword { get; set; } = null!;
 
 
     [Required(ErrorMessage = "Field is required")]
@@ -59,9 +48,4 @@ public class AccountRegForm
     [Required(ErrorMessage = "Field is required")]
     [RegularExpression(@"^[A-Öa-ö]{2,}$", ErrorMessage = "Must contain at least 2 letters")]
     public string City { get; set; } = null!;
-
-
-    [Required(ErrorMessage = "Field is required")]
-    [Range(typeof(bool), "true", "true", ErrorMessage = "You need to accept terms and conditions")]
-    public bool TermsAndConditions { get; set; }
 }
