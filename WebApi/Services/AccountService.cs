@@ -101,7 +101,25 @@ public class AccountService(AccountRepository repository, DataContext context, I
         {
             await transaction.RollbackAsync();
             _logger.LogWarning($"Something unexpected happened creating account. ##### {ex}");
-            return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened creating account. ##### {ex}" };
+
+            var deleteRequest = new DeleteRequest
+            {
+                Id = entity.UserId
+            };
+
+            try
+            {
+                var deleteReply = await _authHandlerClient.DeleteUserAsync(deleteRequest);
+
+                return deleteReply.Success
+                    ? new Result<AccountModel> { Succeeded = true, StatusCode = deleteReply.StatusCode, Message = deleteReply.Message }
+                    : new Result<AccountModel> { Succeeded = false, StatusCode = deleteReply.StatusCode, Message = deleteReply.Message };
+            }
+            catch (Exception exc)
+            {
+                _logger.LogWarning($"Something unexpected happened deleting user from Auth database. ##### {exc}");
+                return new Result<AccountModel> { Succeeded = false, StatusCode = 500, Message = $"Something unexpected happened deleting user from Auth database. ##### {ex}" };
+            }
         }
     }
 

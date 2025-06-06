@@ -7,7 +7,7 @@ using WebApi.Services;
 
 namespace WebApi.Controllers;
 
-[Authorize]
+
 [Route("api/account")]
 [ApiController]
 public class AccountController(IAccountService accountService) : ControllerBase
@@ -31,7 +31,7 @@ public class AccountController(IAccountService accountService) : ControllerBase
 
     [HttpPost]
     [Route("create")]
-    public async Task<IActionResult> CreateAsync(AccountRegForm form)
+    public async Task<IActionResult> CreateAsync([FromBody] AccountRegForm form)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);

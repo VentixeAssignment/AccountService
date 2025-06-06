@@ -23,7 +23,7 @@ public class AccountRegForm
 
     public IFormFile? ProfileImage { get; set; }
 
-
+    [Required]
     [RegularExpression(@"^((\+|00)[1-9]\d{0,3}|0)(\s|-)?[1-9]\d{1,2}(\s|-)?\d{3,4}(\s|-)?\d{3,4}$", 
         ErrorMessage = "Invalid phone number")]
     public string? PhoneNumber { get; set; }
