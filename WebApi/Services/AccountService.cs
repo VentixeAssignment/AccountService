@@ -9,23 +9,20 @@ using WebApi.Repositories;
 
 namespace WebApi.Services;
 
-public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, AuthHandler.AuthHandlerClient authHandlerClient) : IAccountService
+public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, GrpcService grpcService) : IAccountService
 {
     private readonly AccountRepository _repository = repository;
     private readonly DataContext _context = context;
     private readonly ImageService _imageService = imageService;
     private readonly ILogger<AccountService> _logger = logger;
-    private readonly AuthHandler.AuthHandlerClient _authHandlerClient = authHandlerClient;
-
+    private readonly GrpcService _grpcService = grpcService;
 
     public async Task<Result<AccountModel>> CreateAccountAsync(AccountRegForm form)
     {
         if (form == null)
             return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "Invalid data in registration form." };
 
-        var existRequest = new ExistsRequest { Email = form.Email };
-
-        var exists = await _authHandlerClient.AlreadyExistsAsync(existRequest);
+        var exists = await _grpcService.AlreadyExistsAsync(form.Email);
 
         if (exists.Success)
             return new Result<AccountModel> { Succeeded = false, StatusCode = exists.StatusCode, Message = exists.Message };
@@ -47,17 +44,11 @@ public class AccountService(AccountRepository repository, DataContext context, I
             City = form.City
         };
 
-        var request = new CreateRequest
-        {
-            Email = form.Email,
-            Password = form.Password
-        };
-
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
-            var reply = await _authHandlerClient.CreateUserAsync(request);
+            var reply = await _grpcService.CreateUserAsync(form.Email, form.Password);
             if (!reply.Success)
             {
                 await transaction.RollbackAsync();
@@ -72,14 +63,11 @@ public class AccountService(AccountRepository repository, DataContext context, I
             {
                 await transaction.RollbackAsync();
 
-                var deleteRequest = new DeleteRequest
-                {
-                    Id = reply.UserId
-                };
+                
 
                 try
                 {
-                    var deleteReply = await _authHandlerClient.DeleteUserAsync(deleteRequest);
+                    var deleteReply = await _grpcService.DeleteUserAsync(entity.UserId);
 
                     return deleteReply.Success
                         ? new Result<AccountModel> { Succeeded = true, StatusCode = deleteReply.StatusCode, Message = deleteReply.Message }
@@ -102,14 +90,9 @@ public class AccountService(AccountRepository repository, DataContext context, I
             await transaction.RollbackAsync();
             _logger.LogWarning($"Something unexpected happened creating account. ##### {ex}");
 
-            var deleteRequest = new DeleteRequest
-            {
-                Id = entity.UserId
-            };
-
             try
             {
-                var deleteReply = await _authHandlerClient.DeleteUserAsync(deleteRequest);
+                var deleteReply = await _grpcService.DeleteUserAsync(entity.UserId);
 
                 return deleteReply.Success
                     ? new Result<AccountModel> { Succeeded = true, StatusCode = deleteReply.StatusCode, Message = deleteReply.Message }
@@ -134,13 +117,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
         if (entity == null || entity.Data == null)
             return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = entity?.Message ?? "Account not found." };
 
-
-        var request = new EmailRequest
-        {
-            Id = entity.Data.UserId
-        };
-
-        var emailReply = await _authHandlerClient.GetUserEmailAsync(request);
+        var emailReply = await _grpcService.GetUserEmailAsync(entity.Data.UserId);
 
         if (!emailReply.Success)
             return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = emailReply.Message };
@@ -148,6 +125,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
         var model = new AccountModel
         {
             Id = entity.Data.Id,
+            UserId = entity.Data.UserId,
             FirstName = entity.Data.FirstName,
             LastName = entity.Data.LastName,
             PhoneNumber = entity.Data.PhoneNumber,
@@ -182,7 +160,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
                 entity.Data.ProfileImageUrl = _imageService.CreateImageUrl(form.ProfileImage!);
             }
 
-            if(form.PhoneNumber != null)
+            if (form.PhoneNumber != null)
             {
                 entity.Data.PhoneNumber = form.PhoneNumber;
             }
@@ -210,7 +188,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
 
     public async Task<Result<AccountModel>> DeleteAccountAsync(AccountModel model)
     {
-        if (model == null || string.IsNullOrWhiteSpace(model.Id))
+        if (model == null || string.IsNullOrWhiteSpace(model.Id) || string.IsNullOrWhiteSpace(model.UserId))
             return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "Invalid input data." };
 
         var entity = new AccountEntity
@@ -218,16 +196,10 @@ public class AccountService(AccountRepository repository, DataContext context, I
             Id = model.Id
         };
 
-        var request = new ActiveRequest
-        {
-            IsActive = false,
-            Id = model.UserId
-        };
-
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            var reply = await _authHandlerClient.ChangeActiveAsync(request);
+            var reply = await _grpcService.ChangeActiveAsync(false, model.UserId);
 
             if (!reply.Success)
                 return new Result<AccountModel> { Succeeded = false, StatusCode = reply.StatusCode, Message = reply.Message };
@@ -237,11 +209,10 @@ public class AccountService(AccountRepository repository, DataContext context, I
             if (!result.Succeeded)
             {
                 await transaction.RollbackAsync();
-                request.IsActive = true;
 
                 try
                 {
-                    var statusResult = await _authHandlerClient.ChangeActiveAsync(request);
+                    var statusResult = await _grpcService.ChangeActiveAsync(true, model.UserId);
                     if (!statusResult.Success)
                         return new Result<AccountModel> { Succeeded = false, StatusCode = reply.StatusCode, Message = reply.Message };
                 }
@@ -258,12 +229,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
 
             try
             {
-                var deleteRequest = new DeleteRequest
-                {
-                    Id = model.UserId
-                };
-
-                var delete = await _authHandlerClient.DeleteUserAsync(deleteRequest);
+                var delete = await _grpcService.DeleteUserAsync(model.UserId);
                 if (!delete.Success)
                 {
                     await transaction.RollbackAsync();

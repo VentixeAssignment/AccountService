@@ -10,7 +10,7 @@ using WebApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
-var grpcUri = builder.Configuration["GrpcUri"];
+builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 var allowedOrigins = builder.Configuration["AllowedOrigins"];
 var originArray = allowedOrigins?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -31,9 +31,19 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddGrpcClient<AuthHandler.AuthHandlerClient>(x =>
+var port = Environment.GetEnvironmentVariable("PORT");
+
+builder.WebHost.ConfigureKestrel(options =>
 {
-    x.Address = new Uri(grpcUri!);
+    if (port is not null)
+    {
+        options.ListenAnyIP(int.Parse(port));
+    }
+    else
+    {
+        options.ListenAnyIP(5020);
+        options.ListenAnyIP(7197, listenOptions => listenOptions.UseHttps());
+    }
 });
 
 builder.Services.AddAuthentication(x =>
@@ -66,7 +76,9 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<DataContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("VentixeDb")));
 builder.Services.AddScoped<AccountRepository>();
+
 builder.Services.AddScoped<ImageService>();
+builder.Services.AddScoped<GrpcService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 
 var app = builder.Build();

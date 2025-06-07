@@ -17,7 +17,7 @@ public class AccountController(IAccountService accountService) : ControllerBase
 
     [HttpGet]
     [Route("")]
-    public async Task<IActionResult> GetOneAsync(string id)
+    public async Task<IActionResult> GetOneAsync([FromHeader]string id)
     {
         if (string.IsNullOrWhiteSpace(id))
             return BadRequest("No valid search term given.");
@@ -51,7 +51,7 @@ public class AccountController(IAccountService accountService) : ControllerBase
 
     [HttpPut]
     [Route("update")]
-    public async Task<IActionResult> UpdateAsync(UpdateRegForm form)
+    public async Task<IActionResult> UpdateAsync([FromBody] UpdateRegForm form)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
