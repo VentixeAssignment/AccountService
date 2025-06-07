@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Dtos;
 using WebApi.Models;
@@ -14,6 +15,23 @@ public class AccountController(IAccountService accountService) : ControllerBase
 {
     private readonly IAccountService _accountService = accountService;
 
+
+    [HttpGet]
+    [Route("profileInfo")]
+    public async Task<IActionResult> GetProfileInfo()
+    {
+        var result = await _accountService.GetProfileInfoAsync();
+
+        if (result.StatusCode == 404)
+            return Conflict(new { result.Message });
+
+        if (result.StatusCode == 400)
+            return BadRequest(new { result.Message });
+
+        return result.Succeeded
+            ? Ok(result.Data) 
+            : StatusCode(result.StatusCode, new { result.Message });
+    }
 
     [HttpGet]
     [Route("")]

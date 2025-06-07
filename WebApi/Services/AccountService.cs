@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using System.Security.Claims;
 using WebApi.Data;
 using WebApi.Dtos;
 using WebApi.Entities;
@@ -9,13 +10,14 @@ using WebApi.Repositories;
 
 namespace WebApi.Services;
 
-public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, GrpcService grpcService) : IAccountService
+public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, GrpcService grpcService, IHttpContextAccessor contextAccessor) : IAccountService
 {
     private readonly AccountRepository _repository = repository;
     private readonly DataContext _context = context;
     private readonly ImageService _imageService = imageService;
     private readonly ILogger<AccountService> _logger = logger;
     private readonly GrpcService _grpcService = grpcService;
+    private readonly IHttpContextAccessor _contextAccessor = contextAccessor;
 
     public async Task<Result<AccountModel>> CreateAccountAsync(AccountRegForm form)
     {
@@ -62,8 +64,6 @@ public class AccountService(AccountRepository repository, DataContext context, I
             if (!result.Succeeded)
             {
                 await transaction.RollbackAsync();
-
-                
 
                 try
                 {
@@ -138,6 +138,43 @@ public class AccountService(AccountRepository repository, DataContext context, I
         };
 
         return new Result<AccountModel> { Succeeded = true, StatusCode = 200, Data = model };
+    }
+
+
+    public async Task<Result<AccountModel>> GetProfileInfoAsync()
+    {
+        var user = _contextAccessor.HttpContext?.User;
+        if (user == null)
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "No claims principal found in Http request." };
+
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if(string.IsNullOrWhiteSpace(userId))
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = "No user found based on claim principals." };
+
+        var entityResult = await _repository.GetOneAsync(x => x.UserId == userId);
+        if (entityResult == null || entityResult.Data == null)
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = $"No entity found with id {userId}." };
+
+        var grpcReply = await _grpcService.GetUserEmailAsync(entityResult.Data.UserId);
+        if (!grpcReply.Success || string.IsNullOrWhiteSpace(grpcReply.Email))
+            return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = $"No email was found for user with id {entityResult.Data.UserId}." };
+
+        var profile = new AccountModel
+        {
+            Id = entityResult.Data.Id,
+            UserId = entityResult.Data.UserId,
+            FirstName = entityResult.Data.FirstName,
+            LastName = entityResult.Data.LastName,
+            Email = grpcReply.Email,
+            PhoneNumber = entityResult.Data.PhoneNumber,
+            ProfileImageUrl = entityResult.Data.ProfileImageUrl,
+            StreetAddress = entityResult.Data.StreetAddress,
+            PostalCode = entityResult.Data.PostalCode,
+            City = entityResult.Data.City,
+            DateOfBirth = entityResult.Data.DateOfBirth
+        };
+
+        return new Result<AccountModel> { Succeeded = true, StatusCode = 200, Data = profile };
     }
 
 

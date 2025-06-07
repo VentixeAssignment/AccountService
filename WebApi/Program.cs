@@ -68,7 +68,7 @@ builder.Services.AddAuthentication(x =>
 });
 
 builder.Services.AddAuthorization();
-
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
@@ -82,6 +82,7 @@ builder.Services.AddScoped<GrpcService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 
 var app = builder.Build();
+app.UseStaticFiles();
 
 if(app.Environment.IsDevelopment())
 {
