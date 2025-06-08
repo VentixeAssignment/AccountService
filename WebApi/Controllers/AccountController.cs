@@ -47,6 +47,26 @@ public class AccountController(IAccountService accountService) : ControllerBase
             : NotFound(new { account.Message });
     }
 
+
+    //[HttpPost]
+    //[Route("verify")]
+    //public async Task<IActionResult> VerifyAsync([FromBody] VerifyAccountRegForm form)
+    //{
+    //    if (!ModelState.IsValid)
+    //        return BadRequest(ModelState);
+
+    //    var result = await _accountService.VerifyVerificationCodeAsync(form);
+
+    //    if (result.StatusCode == 400)
+    //        return BadRequest(new { result.Message });
+
+    //    if (!result.Succeeded)
+    //        return StatusCode(result.StatusCode, new { success = false, errorMessage = result.Message });
+
+    //    return Ok(new { success = true, message = result.Message });
+    //}
+
+
     [HttpPost]
     [Route("create")]
     public async Task<IActionResult> CreateAsync([FromBody] AccountRegForm form)
@@ -64,10 +84,7 @@ public class AccountController(IAccountService accountService) : ControllerBase
 
         if(!result.Succeeded)
             return StatusCode(result.StatusCode, new { success = false, errorMessage = result.Message });
-
-        if (result.Data == null)
-            return StatusCode(result.StatusCode, "Unable to send verification code because user data is missing.");
-
+                
         await _accountService.SendVerificationEmailAsync(form.Email);
 
         return Created(string.Empty, new { success = true, message = result.Message });            

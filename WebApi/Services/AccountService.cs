@@ -23,6 +23,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
 
     private readonly ServiceBusClient _serviceBus = serviceBus;
     private readonly IConfiguration _config = config;
+    //private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
 
     public async Task SendVerificationEmailAsync(string email)
@@ -41,7 +42,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
         }
 
         var message = new { Email = email };
-        
+
         try
         {
             var jsonMessage = JsonSerializer.Serialize(message);
@@ -55,6 +56,49 @@ public class AccountService(AccountRepository repository, DataContext context, I
             return;
         }
     }
+
+    //public async Task<Result<VerifyAccountRegForm>> VerifyVerificationCodeAsync(VerifyAccountRegForm form)
+    //{
+    //    if (string.IsNullOrWhiteSpace(form.Email))
+    //    {
+    //        _logger.LogWarning("Email is null or empty. Unable to verify verification code.");
+    //        return new Result<VerifyAccountRegForm> { Succeeded = false, StatusCode = 400, Message = "Email is required." };
+    //    }
+
+    //    var httpClient = _httpClientFactory.CreateClient();
+    //    var functionUrl = _config["VerificationFunction"];
+
+    //    if (functionUrl == null)
+    //    {
+    //        _logger.LogWarning("Url for verification function is not configured in appsettings.json.");
+    //        return new Result<VerifyAccountRegForm> { Succeeded = false, StatusCode = 500, Message = "Url for verification function is not configured." };
+    //    }
+
+    //    var payload = new
+    //    {
+    //        form.Email,
+    //        form.VerificationCode 
+    //    };
+
+    //    try
+    //    {
+    //        var response = await httpClient.PostAsJsonAsync(functionUrl, payload);
+    //        if (!response.IsSuccessStatusCode)
+    //        {
+    //            var errorMessage = await response.Content.ReadAsStringAsync();
+    //            _logger.LogError($"Failed to verify verification code for {form.Email}. Status code: {response.StatusCode}, Error: {errorMessage}");
+    //            return new Result<VerifyAccountRegForm> { Succeeded = false, StatusCode = (int)response.StatusCode, Message = errorMessage };
+    //        }
+    //        var responseText = await response.Content.ReadAsStringAsync();
+
+    //        return new Result<VerifyAccountRegForm> { Succeeded = true, StatusCode = 200, Message = responseText };
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError($"Failed to verify verification code for {form.Email}. Exception: {ex}");
+    //        return new Result<VerifyAccountRegForm> { Succeeded = false, StatusCode = 500, Message = "Failed to verify verification code." };
+    //    }
+    //}
 
 
     public async Task<Result<AccountModel>> CreateAccountAsync(AccountRegForm form)

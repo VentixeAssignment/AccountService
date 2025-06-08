@@ -21,7 +21,6 @@ if (originArray == null || originArray.Length == 0)
     throw new Exception($"Appsettings not loaded correctly. {allowedOrigins}");
 }
 
-
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -59,7 +58,7 @@ builder.Services.AddAuthentication(x =>
     {
         ValidIssuer = config["Jwt:Issuer"],
         ValidateIssuer = true,
-        ValidAudience = config["Jwt:Audience"],
+        ValidAudiences = config.GetSection("Jwt:Audience").Get<string[]>(),
         ValidateAudience = true,
         IssuerSigningKey = new SymmetricSecurityKey
             (Encoding.UTF8.GetBytes(config["Jwt:Key"]!)),
@@ -83,6 +82,8 @@ builder.Services.AddScoped<AccountRepository>();
 builder.Services.AddScoped<ImageService>();
 builder.Services.AddScoped<GrpcService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+
+//builder.Services.AddHttpClient();
 
 var app = builder.Build();
 app.UseStaticFiles();
