@@ -1,3 +1,4 @@
+using Azure.Messaging.ServiceBus;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -66,6 +67,8 @@ builder.Services.AddAuthentication(x =>
         ValidateLifetime = true
     };
 });
+
+builder.Services.AddSingleton(new ServiceBusClient(config["ServiceBus:ConnectionString"]));
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();

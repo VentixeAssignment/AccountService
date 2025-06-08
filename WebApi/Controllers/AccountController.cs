@@ -62,9 +62,15 @@ public class AccountController(IAccountService accountService) : ControllerBase
         if(result.StatusCode == 400)
             return BadRequest(new {result.Message});
 
-        return result.Succeeded
-            ? Created(string.Empty, new { result.Message })
-            : StatusCode(result.StatusCode, new { result.Message });            
+        if(!result.Succeeded)
+            return StatusCode(result.StatusCode, new { success = false, errorMessage = result.Message });
+
+        if (result.Data == null)
+            return StatusCode(result.StatusCode, "Unable to send verification code because user data is missing.");
+
+        await _accountService.SendVerificationEmailAsync(form.Email);
+
+        return Created(string.Empty, new { success = true, message = result.Message });            
     }
 
     [HttpPut]

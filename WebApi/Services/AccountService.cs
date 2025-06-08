@@ -1,6 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Messaging.ServiceBus;
+using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Security.Claims;
+using System.Text.Json;
 using WebApi.Data;
 using WebApi.Dtos;
 using WebApi.Entities;
@@ -10,7 +12,7 @@ using WebApi.Repositories;
 
 namespace WebApi.Services;
 
-public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, GrpcService grpcService, IHttpContextAccessor contextAccessor) : IAccountService
+public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, GrpcService grpcService, IHttpContextAccessor contextAccessor, IConfiguration config, ServiceBusClient serviceBus) : IAccountService
 {
     private readonly AccountRepository _repository = repository;
     private readonly DataContext _context = context;
@@ -18,6 +20,42 @@ public class AccountService(AccountRepository repository, DataContext context, I
     private readonly ILogger<AccountService> _logger = logger;
     private readonly GrpcService _grpcService = grpcService;
     private readonly IHttpContextAccessor _contextAccessor = contextAccessor;
+
+    private readonly ServiceBusClient _serviceBus = serviceBus;
+    private readonly IConfiguration _config = config;
+
+
+    public async Task SendVerificationEmailAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            _logger.LogWarning("Email is null or empty. Unable to send verification email.");
+            return;
+        }
+
+        var sender = _serviceBus.CreateSender(_config["ServiceBus:Sender"]);
+        if (sender == null)
+        {
+            _logger.LogWarning("ServiceBus:Sender is not configured in appsettings.json.");
+            return;
+        }
+
+        var message = new { Email = email };
+        
+        try
+        {
+            var jsonMessage = JsonSerializer.Serialize(message);
+            var serviceBusMessage = new ServiceBusMessage(jsonMessage);
+            await sender.SendMessageAsync(serviceBusMessage);
+            await sender.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Failed to send verification email to {email}. Exception: {ex}");
+            return;
+        }
+    }
+
 
     public async Task<Result<AccountModel>> CreateAccountAsync(AccountRegForm form)
     {
@@ -148,7 +186,7 @@ public class AccountService(AccountRepository repository, DataContext context, I
             return new Result<AccountModel> { Succeeded = false, StatusCode = 400, Message = "No claims principal found in Http request." };
 
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if(string.IsNullOrWhiteSpace(userId))
+        if (string.IsNullOrWhiteSpace(userId))
             return new Result<AccountModel> { Succeeded = false, StatusCode = 404, Message = "No user found based on claim principals." };
 
         var entityResult = await _repository.GetOneAsync(x => x.UserId == userId);
