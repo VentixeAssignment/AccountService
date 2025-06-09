@@ -48,23 +48,29 @@ public class AccountController(IAccountService accountService) : ControllerBase
     }
 
 
-    //[HttpPost]
-    //[Route("verify")]
-    //public async Task<IActionResult> VerifyAsync([FromBody] VerifyAccountRegForm form)
-    //{
-    //    if (!ModelState.IsValid)
-    //        return BadRequest(ModelState);
+    [HttpPost]
+    [Route("verify")]
+    public async Task<IActionResult> VerifyAsync([FromBody] VerifyAccountRegForm form)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
 
-    //    var result = await _accountService.VerifyVerificationCodeAsync(form);
+        var result = await _accountService.VerifyVerificationCode(form);
 
-    //    if (result.StatusCode == 400)
-    //        return BadRequest(new { result.Message });
+        if (result.StatusCode == 400)
+            return BadRequest(new { result.Message });
 
-    //    if (!result.Succeeded)
-    //        return StatusCode(result.StatusCode, new { success = false, errorMessage = result.Message });
+        if (result.StatusCode == 404)
+            return NotFound(new { result.Message });
 
-    //    return Ok(new { success = true, message = result.Message });
-    //}
+        if (result.StatusCode == 500)
+            return StatusCode(500, new { result.Message });
+
+        if (!result.Succeeded)
+            return StatusCode(result.StatusCode, new { success = false, errorMessage = result.Message });
+
+        return Ok(new { success = true, message = result.Message });
+    }
 
 
     [HttpPost]
@@ -85,9 +91,11 @@ public class AccountController(IAccountService accountService) : ControllerBase
         if(!result.Succeeded)
             return StatusCode(result.StatusCode, new { success = false, errorMessage = result.Message });
                 
-        await _accountService.SendVerificationEmailAsync(form.Email);
+        var emailSent = await _accountService.SendVerificationEmailAsync(form.Email);
 
-        return Created(string.Empty, new { success = true, message = result.Message });            
+        return emailSent.Succeeded
+            ? Created(string.Empty, new { success = true, message = result.Message })
+            : StatusCode(emailSent.StatusCode, emailSent.Message);            
     }
 
     [HttpPut]

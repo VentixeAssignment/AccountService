@@ -6,6 +6,7 @@ service AuthHandler {
 	rpc CreateUser(CreateRequest) returns(CreateReply);
 	rpc AlreadyExists(ExistsRequest) returns(ExistsReply);
 	rpc GetUserEmail(EmailRequest) returns(EmailReply);
+	rpc VerifyCode(VerifyCodeRequest) returns(VerifyCodeReply);
 	rpc UpdateUser(UpdateRequest) returns(UpdateReply);
 	rpc UpdatePassword(PasswordRequest) returns(PasswordReply);
 	rpc ChangeActive(ActiveRequest) returns(ActiveReply);
@@ -43,6 +44,17 @@ message EmailRequest {
 message EmailReply {
 	bool Success = 1;
 	string Email = 2;
+	string Message = 3;
+}
+
+message VerifyCodeRequest {
+	string Email = 1;
+	string Code = 2;
+}
+
+message VerifyCodeReply {
+	bool Succeeded = 1;
+	int32 StatusCode = 2;
 	string Message = 3;
 }
 

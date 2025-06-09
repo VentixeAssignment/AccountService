@@ -1,8 +1,13 @@
 ﻿using Azure.Messaging.ServiceBus;
+using EmailFunction.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using System;
+using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Threading.Tasks;
 using WebApi.Data;
 using WebApi.Dtos;
 using WebApi.Entities;
@@ -12,7 +17,7 @@ using WebApi.Repositories;
 
 namespace WebApi.Services;
 
-public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, GrpcService grpcService, IHttpContextAccessor contextAccessor, IConfiguration config, ServiceBusClient serviceBus) : IAccountService
+public class AccountService(AccountRepository repository, DataContext context, ImageService imageService, ILogger<AccountService> logger, GrpcService grpcService, IHttpContextAccessor contextAccessor, ServiceBusSender sender, IMemoryCache cache) : IAccountService
 {
     private readonly AccountRepository _repository = repository;
     private readonly DataContext _context = context;
@@ -20,41 +25,70 @@ public class AccountService(AccountRepository repository, DataContext context, I
     private readonly ILogger<AccountService> _logger = logger;
     private readonly GrpcService _grpcService = grpcService;
     private readonly IHttpContextAccessor _contextAccessor = contextAccessor;
+    private readonly IMemoryCache _cache = cache;
 
-    private readonly ServiceBusClient _serviceBus = serviceBus;
-    private readonly IConfiguration _config = config;
+    private readonly ServiceBusSender _sender = sender;
+    private readonly Random _random = new Random();
     //private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
 
-    public async Task SendVerificationEmailAsync(string email)
+    public async Task<Result<VerifyAccountRegForm>> SendVerificationEmailAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
             _logger.LogWarning("Email is null or empty. Unable to send verification email.");
-            return;
+            return new Result<VerifyAccountRegForm> { Succeeded = false, StatusCode = 400, Message = "Email is required." };
         }
 
-        var sender = _serviceBus.CreateSender(_config["ServiceBus:Sender"]);
-        if (sender == null)
-        {
-            _logger.LogWarning("ServiceBus:Sender is not configured in appsettings.json.");
-            return;
-        }
+        var code = _random.Next(100000, 999999).ToString();
+        var payload = new { Email = email, Code = code };
 
-        var message = new { Email = email };
+        var json = JsonSerializer.Serialize(payload);
+        var emailMessage = new ServiceBusMessage(json);
+
+        SaveVerificationCodeToCache(new SaveVerificationCodeModel { Email = email, VerificationCode = code, ValidFor = TimeSpan.FromMinutes(10) });
 
         try
         {
-            var jsonMessage = JsonSerializer.Serialize(message);
-            var serviceBusMessage = new ServiceBusMessage(jsonMessage);
-            await sender.SendMessageAsync(serviceBusMessage);
-            await sender.DisposeAsync();
+            await _sender.SendMessageAsync(emailMessage);
+            return new Result<VerifyAccountRegForm> { Succeeded = true, StatusCode = 200, Message = "Verification email sent successfully." };
         }
         catch (Exception ex)
         {
             _logger.LogError($"Failed to send verification email to {email}. Exception: {ex}");
-            return;
+            return new Result<VerifyAccountRegForm> { Succeeded = false, StatusCode = 500, Message = $"Failed to send verification email. {ex}" };
         }
+    }
+
+    public void SaveVerificationCodeToCache(SaveVerificationCodeModel model)
+    {
+        _cache.Set(model.Email.ToLower(), model.VerificationCode, model.ValidFor);
+    }
+
+    public async Task<Result<VerifyVerificationCodeModel>> VerifyVerificationCode(VerifyAccountRegForm model)
+    {
+        var key = model.Email.ToLower();
+
+        if (_cache.TryGetValue(key, out string? cachedCode))
+        {
+            if (cachedCode == model.Code)
+            {
+                var user = await _grpcService.VerifyCodeAsync(model.Email, model.Code);
+
+                if (!user.Succeeded)
+                {
+                    _logger.LogWarning($"Failed to set user to verified. {model.Email}. Error: {user.Message}");
+                    return new Result<VerifyVerificationCodeModel> { Succeeded = false, Message = user.Message };
+                }
+                return new Result<VerifyVerificationCodeModel> { Succeeded = true, Message = "Verification code is valid." };
+            }
+            else
+            {
+                _cache.Remove(key);
+                return new Result<VerifyVerificationCodeModel> { Succeeded = false, Message = "Invalid verification code." };
+            }
+        }
+        return new Result<VerifyVerificationCodeModel> { Succeeded = false, Message = "Invalid key." };
     }
 
     //public async Task<Result<VerifyAccountRegForm>> VerifyVerificationCodeAsync(VerifyAccountRegForm form)

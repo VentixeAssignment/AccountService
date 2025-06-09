@@ -58,6 +58,18 @@ public class GrpcService
     }
 
 
+    public async Task<VerifyCodeReply> VerifyCodeAsync(string email, string code)
+    {
+        var request = new VerifyCodeRequest
+        {
+            Email = email,
+            Code = code
+        };
+        var reply = await _client.VerifyCodeAsync(request);
+        return reply;
+    }
+
+
     public async Task<ActiveReply> ChangeActiveAsync(bool active, string id)
     {
         var request = new ActiveRequest

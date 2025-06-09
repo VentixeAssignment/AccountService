@@ -69,6 +69,14 @@ builder.Services.AddAuthentication(x =>
 
 builder.Services.AddSingleton(new ServiceBusClient(config["ServiceBus:ConnectionString"]));
 
+builder.Services.AddSingleton<ServiceBusSender>(x =>
+{
+    var client = x.GetRequiredService<ServiceBusClient>();
+    return client.CreateSender(config["ServiceBus:QueueName"]);
+});
+
+builder.Services.AddMemoryCache();
+
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
